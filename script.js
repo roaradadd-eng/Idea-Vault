@@ -1,10 +1,12 @@
+// 1. إعدادات الربط - تأكد من وضع مفتاح anon public الصحيح (يبدأ بـ eyJ)
 const SUPABASE_URL = 'https://dlxqqqczygwrglfvghiq.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_zlJ93xLgYxEZuGL7Yc7EOg_gyAyjKSo';
+const SUPABASE_KEY = 'ضع_هنا_مفتاح_anon_public_الخاص_بك'; 
+
 const SUPABASE_HEADERS = {
     'apikey': SUPABASE_KEY,
     'Authorization': `Bearer ${SUPABASE_KEY}`,
     'Content-Type': 'application/json',
-    'Prefer': 'return=representation'
+    'Prefer': 'return=minimal' 
 };
 
 // State Arrays
@@ -96,8 +98,6 @@ function drawStars() {
         ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
         ctx.fill();
         star.y -= star.speed;
-        
-        // Wrap around smoothly
         if (star.y < 0) {
             star.y = canvas.height;
             star.x = Math.random() * canvas.width;
@@ -120,34 +120,21 @@ function init() {
 function renderLanguage() {
     const t = translations[currentLang];
     document.body.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
-    
-    // Switch Texts
     document.getElementById('modalTitle').textContent = t.modalTitle;
     document.getElementById('modalMainText').textContent = t.modalMainText;
     document.getElementById('modalTermsText').textContent = t.modalTermsText;
     btnTerms.textContent = t.btnTerms;
     btnAgree.textContent = t.btnAgree;
-    
     document.getElementById('appTitle').textContent = t.appTitle;
     document.getElementById('labelAge').textContent = t.labelAge;
     document.getElementById('labelIdea').textContent = t.labelIdea;
     btnSave.textContent = t.btnSave;
     btnSearch.textContent = t.btnSearch;
     
-    // We only update list title if it's the normal list (not currently searching)
-    if (!document.getElementById('listTitle').dataset.isSearching) {
-        document.getElementById('listTitle').textContent = t.listTitle;
-    } else {
-        // if searching, just update the label partial
-        const currentText = document.getElementById('listTitle').textContent;
-        const count = currentText.match(/\((\d+)\)/);
-        if (count) {
-            document.getElementById('listTitle').textContent = `${t.searchResults} (${count[1]})`;
-        } else {
-            document.getElementById('listTitle').textContent = t.searchResults;
-        }
+    const listTitleElem = document.getElementById('listTitle');
+    if (!listTitleElem.dataset.isSearching) {
+        listTitleElem.textContent = t.listTitle;
     }
-    
     renderIdeas();
 }
 
@@ -166,50 +153,38 @@ btnAgree.addEventListener('click', () => {
     mainApp.classList.remove('hidden');
 });
 
-// Database Fetch Logic (Supabase API)
+// --- التعديل هنا لضمان عمل الجلب (Fetch) بشكل صحيح ---
 async function fetchIdeas(query = '') {
     const t = translations[currentLang];
     ideasList.innerHTML = `<p style="color: #666; text-align: center; font-style: italic; padding: 20px;">${t.loading}</p>`;
     
     let url = `${SUPABASE_URL}/rest/v1/ideasformy?select=*&order=created_at.desc`;
-    
-    // Supabase native text filtering
     if (query) {
-        // split words, only find words > 2 chars to avoid overly broad matching
-        const words = query.split(/\s+/).filter(w => w.length > 2);
-        if (words.length > 0) {
-            const conditions = words.map(w => `idea.ilike.*${encodeURIComponent(w)}*`).join(',');
-            url += `&or=(${conditions})`;
-        } else {
-            url += `&idea=ilike.*${encodeURIComponent(query)}*`;
-        }
+        url += `&idea=ilike.*${encodeURIComponent(query)}*`;
     }
     
     try {
         const res = await fetch(url, { headers: SUPABASE_HEADERS });
         if (res.ok) {
             ideas = await res.json();
-            
+            const listTitleElem = document.getElementById('listTitle');
             if (query) {
-                document.getElementById('listTitle').dataset.isSearching = "true";
-                document.getElementById('listTitle').textContent = `${t.searchResults} (${ideas.length})`;
+                listTitleElem.dataset.isSearching = "true";
+                listTitleElem.textContent = `${t.searchResults} (${ideas.length})`;
             } else {
-                document.getElementById('listTitle').dataset.isSearching = "";
-                document.getElementById('listTitle').textContent = t.listTitle;
+                listTitleElem.dataset.isSearching = "";
+                listTitleElem.textContent = t.listTitle;
             }
-            
             renderIdeas();
         } else {
-            console.error('Failed to fetch ideas', await res.text());
-            ideasList.innerHTML = `<p style="color: red; text-align: center; font-style: italic; padding: 20px;">${t.alertError}</p>`;
+            ideasList.innerHTML = `<p style="color: red; text-align: center;">${t.alertError}</p>`;
         }
     } catch (e) {
-        console.error('Error fetching ideas:', e);
-        ideasList.innerHTML = `<p style="color: red; text-align: center; font-style: italic; padding: 20px;">${t.alertError}</p>`;
+        console.error('Error fetching:', e);
     }
 }
 
-// Database Create Logic (Supabase API)
+// --- التعديل هنا لضمان مطابقة الأعمدة (age, idea) ---
 btnSave.addEventListener('click', async () => {
     const ageVal = ageInput.value.trim();
     const text = ideaInput.value.trim();
@@ -220,14 +195,13 @@ btnSave.addEventListener('click', async () => {
         return;
     }
     
-    // Disable inputs while saving to prevent double-click
     btnSave.disabled = true;
     const originalBtnText = btnSave.textContent;
     btnSave.textContent = '...';
     
     const newIdea = {
         age: ageVal ? parseInt(ageVal, 10) : null,
-        idea: text
+        idea: text 
     };
     
     try {
@@ -239,34 +213,30 @@ btnSave.addEventListener('click', async () => {
         
         if (res.ok) {
             alert(t.alertSuccess);
-            ideaInput.value = ''; // Clean input
-            // Fetch updated list and reset search state
-            document.getElementById('listTitle').dataset.isSearching = "";
+            ideaInput.value = '';
+            ageInput.value = '';
             await fetchIdeas();
         } else {
-            alert(t.alertError);
-            console.error('Failed to save idea', await res.text());
+            const errorData = await res.json();
+            console.error('Supabase Error:', errorData);
+            alert(`${t.alertError}: ${errorData.message}`);
         }
     } catch (e) {
         alert(t.alertError);
-        console.error('Error saving idea:', e);
     } finally {
         btnSave.disabled = false;
         btnSave.textContent = originalBtnText;
     }
 });
 
-// Search Filter Logic
 btnSearch.addEventListener('click', () => {
     const query = ideaInput.value.trim().toLowerCase();
     fetchIdeas(query);
 });
 
-// UI Rendering Logic
 function renderIdeas() {
     ideasList.innerHTML = '';
     const t = translations[currentLang];
-    
     if (ideas.length === 0) {
         ideasList.innerHTML = `<p style="color: #666; text-align: center; font-style: italic; padding: 20px;">${t.noIdeas}</p>`;
         return;
@@ -275,36 +245,23 @@ function renderIdeas() {
     ideas.forEach(record => {
         const card = document.createElement('div');
         card.className = 'idea-card';
-        
-        // Format timestamp safely
         const dateObj = new Date(record.created_at);
         const timestamp = isNaN(dateObj.getTime()) ? record.created_at : dateObj.toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-US');
-        
-        // Check age and text, prevent basic XSS
         const safeText = escapeHTML(record.idea);
-        const displayAge = record.age !== null ? record.age : '-';
         
         card.innerHTML = `
-            <div class="meta">${t.ageLabel}: ${displayAge} &nbsp;&bull;&nbsp; ${timestamp}</div>
+            <div class="meta">${t.ageLabel}: ${record.age || '-'} &nbsp;&bull;&nbsp; ${timestamp}</div>
             <div class="text">${safeText}</div>
         `;
         ideasList.appendChild(card);
     });
 }
 
-// Utility: Avoid malicious input execution
 function escapeHTML(str) {
     if (!str) return '';
-    return str.replace(/[&<>'"]/g, 
-        tag => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            "'": '&#39;',
-            '"': '&quot;'
-        }[tag] || tag)
-    );
+    return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag] || tag));
 }
 
-// Start app
 init();
