@@ -1,16 +1,5 @@
-// 1. إعدادات الربط من Supabase
-const SUPABASE_URL = 'https://dlxqqqczygwrglfvghiq.supabase.co'; // تم جلبه من صورة image_c021d7.png
-const SUPABASE_KEY = 'sb_publishable_zlJ93xLgYxEZuGL7Yc7EOg_gyAyjKSo'; // انسخ مفتاح Anon Key بالكامل من صورة image_c021d7.png
-
-const SUPABASE_HEADERS = {
-    'apikey': SUPABASE_KEY,
-    'Authorization': `Bearer ${SUPABASE_KEY}`,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=minimal' 
-};
-
 // State Arrays
-let ideas = [];
+let ideas = JSON.parse(localStorage.getItem('ideaVault_ideas') || '[]');
 let currentLang = 'en'; // Default language
 
 // DOM Elements
@@ -32,7 +21,7 @@ const translations = {
     en: {
         modalTitle: "Privacy Agreement",
         modalMainText: "By using this website, you agree that the ideas you submit may be stored, and the website reserves the right to use or manage them as it sees fit.",
-        modalTermsText: "Detailed terms: We store your data securely across our services. By submitting your ideas, you acknowledge that they are provided voluntarily without compensation.",
+        modalTermsText: "Detailed terms: We store your data locally on your device. However, you acknowledge that any shared ideas are submitted voluntarily without compensation.",
         btnTerms: "View Privacy Terms",
         btnAgree: "Agree",
         appTitle: "Idea Vault",
@@ -44,15 +33,12 @@ const translations = {
         ageLabel: "Age",
         noIdeas: "No ideas yet. Be the first to save one!",
         alertEmpty: "Please enter an idea.",
-        alertError: "Error saving idea. Please try again.",
-        alertSuccess: "Idea saved successfully!",
-        searchResults: "Search Results",
-        loading: "Loading..."
+        searchResults: "Search Results"
     },
     ar: {
         modalTitle: "اتفاقية الخصوصية",
         modalMainText: "باستخدام هذا الموقع، فإنك توافق على أن الأفكار التي ترسلها قد يتم تخزينها، ويحتفظ الموقع بالحق في استخدامها أو إدارتها كما يراه مناسباً.",
-        modalTermsText: "شروط مفصلة: يتم تخزين البيانات بشكل آمن على خوادمنا. بتقديمك لهذه الأفكار، فإنك تمنحنا الإذن باستخدامها بحرية و بصورة تطوعية بدون مقابل.",
+        modalTermsText: "شروط مفصلة: يتم تخزين البيانات محليًا على جهازك. بتقديمك لهذه الأفكار، فإنك تمنحنا الإذن باستخدامها بحرية و بصورة تطوعية.",
         btnTerms: "عرض شروط الخصوصية",
         btnAgree: "موافق",
         appTitle: "خزنة الأفكار",
@@ -64,10 +50,7 @@ const translations = {
         ageLabel: "العمر",
         noIdeas: "لا توجد أفكار بعد. كن أول من يحفظ فكرة!",
         alertEmpty: "يرجى إدخال فكرة.",
-        alertError: "حدث خطأ أثناء حفظ الفكرة. يرجى المحاولة مرة أخرى.",
-        alertSuccess: "تم حفظ الفكرة بنجاح!",
-        searchResults: "نتائج البحث",
-        loading: "جاري التحميل..."
+        searchResults: "نتائج البحث"
     }
 };
 
@@ -98,6 +81,8 @@ function drawStars() {
         ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
         ctx.fill();
         star.y -= star.speed;
+        
+        // Wrap around smoothly
         if (star.y < 0) {
             star.y = canvas.height;
             star.x = Math.random() * canvas.width;
@@ -113,29 +98,50 @@ function init() {
     initStars();
     drawStars();
     renderLanguage();
-    fetchIdeas();
+    
+    // Check local storage for privacy agreement
+    if (localStorage.getItem('ideaVault_agreed') === 'true') {
+        privacyModal.classList.add('hidden');
+        mainApp.classList.remove('hidden');
+    }
+    
+    renderIdeas();
 }
 
 // Language Logic
 function renderLanguage() {
     const t = translations[currentLang];
     document.body.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+    
+    // Switch Texts
     document.getElementById('modalTitle').textContent = t.modalTitle;
     document.getElementById('modalMainText').textContent = t.modalMainText;
     document.getElementById('modalTermsText').textContent = t.modalTermsText;
     btnTerms.textContent = t.btnTerms;
     btnAgree.textContent = t.btnAgree;
+    
     document.getElementById('appTitle').textContent = t.appTitle;
     document.getElementById('labelAge').textContent = t.labelAge;
     document.getElementById('labelIdea').textContent = t.labelIdea;
     btnSave.textContent = t.btnSave;
     btnSearch.textContent = t.btnSearch;
     
-    const listTitleElem = document.getElementById('listTitle');
-    if (!listTitleElem.dataset.isSearching) {
-        listTitleElem.textContent = t.listTitle;
+    // We only update list title if it's the normal list (not currently searching)
+    if (!document.getElementById('listTitle').dataset.isSearching) {
+        document.getElementById('listTitle').textContent = t.listTitle;
+    } else {
+        // if searching, just update the label partial (we lose count here but simpler logic)
+        const currentText = document.getElementById('listTitle').textContent;
+        const count = currentText.match(/\((\d+)\)/);
+        if (count) {
+            document.getElementById('listTitle').textContent = `${t.searchResults} (${count[1]})`;
+        }
     }
-    renderIdeas();
+    
+    // Update existing idea cards
+    // The language UI of tags on existing ideas inside localstorage doesn't change since we saved raw data,
+    // but the word "Age" should translate.
+    renderIdeas(ideas, false);
 }
 
 langSwitch.addEventListener('change', (e) => {
@@ -149,121 +155,118 @@ btnTerms.addEventListener('click', () => {
 });
 
 btnAgree.addEventListener('click', () => {
+    localStorage.setItem('ideaVault_agreed', 'true');
     privacyModal.classList.add('hidden');
     mainApp.classList.remove('hidden');
 });
 
-// --- التعديل هنا لضمان عمل الجلب (Fetch) بشكل صحيح ---
-async function fetchIdeas(query = '') {
-    const t = translations[currentLang];
-    ideasList.innerHTML = `<p style="color: #666; text-align: center; font-style: italic; padding: 20px;">${t.loading}</p>`;
-    
-    let url = `${SUPABASE_URL}/rest/v1/ideasformy?select=*&order=created_at.desc`;
-    if (query) {
-        url += `&idea=ilike.*${encodeURIComponent(query)}*`;
-    }
-    
-    try {
-        const res = await fetch(url, { headers: SUPABASE_HEADERS });
-        if (res.ok) {
-            ideas = await res.json();
-            const listTitleElem = document.getElementById('listTitle');
-            if (query) {
-                listTitleElem.dataset.isSearching = "true";
-                listTitleElem.textContent = `${t.searchResults} (${ideas.length})`;
-            } else {
-                listTitleElem.dataset.isSearching = "";
-                listTitleElem.textContent = t.listTitle;
-            }
-            renderIdeas();
-        } else {
-            ideasList.innerHTML = `<p style="color: red; text-align: center;">${t.alertError}</p>`;
-        }
-    } catch (e) {
-        console.error('Error fetching:', e);
-    }
-}
-
-// --- التعديل هنا لضمان مطابقة الأعمدة (age, idea) ---
-btnSave.addEventListener('click', async () => {
-    const ageVal = ageInput.value.trim();
+// Save Logic
+btnSave.addEventListener('click', () => {
+    const age = ageInput.value.trim();
     const text = ideaInput.value.trim();
-    const t = translations[currentLang];
     
     if (!text) {
-        alert(t.alertEmpty);
+        alert(translations[currentLang].alertEmpty);
         return;
     }
     
-    btnSave.disabled = true;
-    const originalBtnText = btnSave.textContent;
-    btnSave.textContent = '...';
-    
     const newIdea = {
-        age: ageVal ? parseInt(ageVal, 10) : null,
-        idea: text 
+        id: Date.now(),
+        age: age || '-',
+        text: text,
+        timestamp: new Date().toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-US')
     };
     
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/ideasformy`, {
-            method: 'POST',
-            headers: SUPABASE_HEADERS,
-            body: JSON.stringify(newIdea)
-        });
-        
-        if (res.ok) {
-            alert(t.alertSuccess);
-            ideaInput.value = '';
-            ageInput.value = '';
-            await fetchIdeas();
-        } else {
-            const errorData = await res.json();
-            console.error('Supabase Error:', errorData);
-            alert(`${t.alertError}: ${errorData.message}`);
-        }
-    } catch (e) {
-        alert(t.alertError);
-    } finally {
-        btnSave.disabled = false;
-        btnSave.textContent = originalBtnText;
-    }
+    ideas.unshift(newIdea); // Insert at beginning
+    localStorage.setItem('ideaVault_ideas', JSON.stringify(ideas));
+    
+    ideaInput.value = ''; // Clean input
+    
+    // reset search state
+    document.getElementById('listTitle').dataset.isSearching = "";
+    document.getElementById('listTitle').textContent = translations[currentLang].listTitle;
+    
+    renderIdeas();
 });
 
+// Search Logic
 btnSearch.addEventListener('click', () => {
     const query = ideaInput.value.trim().toLowerCase();
-    fetchIdeas(query);
+    
+    if (!query) {
+        // If empty, show all ideas
+        document.getElementById('listTitle').dataset.isSearching = "";
+        document.getElementById('listTitle').textContent = translations[currentLang].listTitle;
+        renderIdeas();
+        return;
+    }
+    
+    // Basic word matching (Split text by spaces and filter out tiny words)
+    const words = query.split(/\s+/).filter(w => w.length > 2);
+    
+    const matched = ideas.filter(idea => {
+        const ideaText = idea.text.toLowerCase();
+        
+        // Exact substring match
+        if (ideaText.includes(query)) return true;
+        
+        // Word sharing match
+        if (words.length > 0) {
+            for (let w of words) {
+                if (ideaText.includes(w)) return true;
+            }
+        }
+        return false;
+    });
+    
+    document.getElementById('listTitle').dataset.isSearching = "true";
+    document.getElementById('listTitle').textContent = `${translations[currentLang].searchResults} (${matched.length})`;
+    
+    renderIdeas(matched);
 });
 
-function renderIdeas() {
+// Rendering List
+function renderIdeas(listToRender = document.getElementById('listTitle').dataset.isSearching ? undefined : ideas, preserveScroll = true) {
+    // If not passed explicitly, and we are searching, we shouldn't wipe out search results on normal language render, 
+    // but the logic here handles language render re-rendering all ideas. 
+    // Let's just default to all ideas for simplicity unless searching is explicitly active and not handled.
+    if (listToRender === undefined) listToRender = ideas; 
+    
     ideasList.innerHTML = '';
     const t = translations[currentLang];
-    if (ideas.length === 0) {
+    
+    if (listToRender.length === 0) {
         ideasList.innerHTML = `<p style="color: #666; text-align: center; font-style: italic; padding: 20px;">${t.noIdeas}</p>`;
         return;
     }
     
-    ideas.forEach(record => {
+    listToRender.forEach(idea => {
         const card = document.createElement('div');
         card.className = 'idea-card';
-        const dateObj = new Date(record.created_at);
-        const timestamp = isNaN(dateObj.getTime()) ? record.created_at : dateObj.toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-US');
-        const safeText = escapeHTML(record.idea);
+        
+        // Escape HTML to prevent basic XSS
+        const safeText = escapeHTML(idea.text);
         
         card.innerHTML = `
-            <div class="meta">${t.ageLabel}: ${record.age || '-'} &nbsp;&bull;&nbsp; ${timestamp}</div>
+            <div class="meta">${t.ageLabel}: ${idea.age} &nbsp;&bull;&nbsp; ${idea.timestamp}</div>
             <div class="text">${safeText}</div>
         `;
         ideasList.appendChild(card);
     });
 }
 
+// Utility: Avoid malicious input execution
 function escapeHTML(str) {
-    if (!str) return '';
-    return str.replace(/[&<>'"]/g, tag => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-    }[tag] || tag));
+    return str.replace(/[&<>'"]/g, 
+        tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+        }[tag] || tag)
+    );
 }
 
+// Start app
 init();
-
-
