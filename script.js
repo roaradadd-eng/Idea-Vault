@@ -1,6 +1,6 @@
-// 1. إعدادات الربط - تأكد من وضع مفتاح anon public الصحيح (يبدأ بـ eyJ)
-const SUPABASE_URL = 'https://dlxqqqczygwrglfvghiq.supabase.co';
-const SUPABASE_KEY = 'ضع_هنا_مفتاح_anon_public_الخاص_بك'; 
+// 1. إعدادات الربط من Supabase
+const SUPABASE_URL = 'https://dlxqqqczygwrglfvghiq.supabase.co'; // تم جلبه من صورة image_c021d7.png
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ...'; // انسخ مفتاح Anon Key بالكامل من صورة image_c021d7.png
 
 const SUPABASE_HEADERS = {
     'apikey': SUPABASE_KEY,
@@ -265,3 +265,4 @@ function escapeHTML(str) {
 }
 
 init();
+
