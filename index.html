@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Idea Vault</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="starCanvas"></canvas>
+    
+    <div class="header">
+        <select id="langSwitch">
+            <option value="en">English</option>
+            <option value="ar">العربية</option>
+        </select>
+    </div>
+
+    <!-- Privacy Modal -->
+    <div id="privacyModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Privacy Agreement</h2>
+            <p id="modalMainText">By using this website, you agree that the ideas you submit may be stored, and the website reserves the right to use or manage them as it sees fit.</p>
+            <div id="privacyTerms" class="hidden">
+                <p id="modalTermsText">Detailed terms: We store your data locally on your device using LocalStorage. By submitting your ideas, you acknowledge that they are provided voluntarily.</p>
+            </div>
+            <div class="modal-actions">
+                <button id="btnTerms" class="btn-secondary">View Privacy Terms</button>
+                <button id="btnAgree" class="btn-primary">Agree</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container main-content hidden" id="mainApp">
+        <h1 id="appTitle">Idea Vault</h1>
+        
+        <div class="input-group">
+            <label for="ageInput" id="labelAge">Your Age</label>
+            <input type="number" id="ageInput" min="1" max="150" placeholder="...">
+        </div>
+
+        <div class="input-group">
+            <label for="ideaInput" id="labelIdea">Your Idea</label>
+            <textarea id="ideaInput" rows="4" placeholder="..."></textarea>
+        </div>
+
+        <div class="actions">
+            <button id="btnSave" class="btn-primary">Save Idea</button>
+            <button id="btnSearch" class="btn-secondary">Search Similar Ideas</button>
+        </div>
+
+        <div class="results">
+            <h2 id="listTitle">Saved Ideas</h2>
+            <div id="ideasList"></div>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        © 2026 IdeaVault — Your ideas, your privacy. All rights reserved.
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
